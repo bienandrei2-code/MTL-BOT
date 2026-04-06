@@ -1,3 +1,5 @@
+DiscordjsTypeError [CommandInteractionOptionType]: Option "user" is of type: 3; expected 6, 9. can you fix this error on this code 
+
 require('dotenv').config();
 
 // 🔁 AUTO-RESTART / ANTI-CRASH
@@ -24,20 +26,6 @@ const client = new Client({
 });
 
 const GUILD_ID = "1487021154735620126";
-
-// 🚨 ALERT SYSTEM
-const ALERT_CHANNEL_ID = "1490650707093618860";
-
-async function sendAlert(message) {
-  try {
-    const channel = await client.channels.fetch(ALERT_CHANNEL_ID);
-    if (channel) {
-      channel.send(message);
-    }
-  } catch (err) {
-    console.error("Alert send failed:", err);
-  }
-}
 
 // 🛠️ COMMAND
 const commands = [
@@ -95,37 +83,14 @@ client.once('clientReady', async () => {
 });
 
 // 🔁 CONNECTION EVENTS
-client.on("error", async (err) => {
-  console.error(err);
-
-  // 🚨 ALERT
-  sendAlert(
-    "⚠️ **BOT ERROR!**\nCheck console:\nhttps://wispbyte.com/client/servers/ade11228/console"
-  );
-});
-
-client.on("shardError", async (err) => {
-  console.error(err);
-
-  // 🚨 ALERT
-  sendAlert(
-    "⚠️ **SHARD ERROR!**\nCheck console:\nhttps://wispbyte.com/client/servers/ade11228/console"
-  );
-});
-
+client.on("error", console.error);
+client.on("shardError", console.error);
 client.on("disconnect", () => {
   console.log("Bot disconnected!");
-
-  // 🚨 ALERT
-  sendAlert(
-    "🚨 **BOT OFFLINE!**\nFix it here:\nhttps://wispbyte.com/client/servers/ade11228/console"
-  );
 });
-
 client.on("reconnecting", () => {
   console.log("Bot reconnecting...");
 });
-
 client.on("resume", () => {
   console.log("Bot resumed!");
 });
