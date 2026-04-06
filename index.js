@@ -1,5 +1,3 @@
-DiscordjsTypeError [CommandInteractionOptionType]: Option "user" is of type: 3; expected 6, 9. can you fix this error on this code 
-
 require('dotenv').config();
 
 // 🔁 AUTO-RESTART / ANTI-CRASH
