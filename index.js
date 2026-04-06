@@ -11,7 +11,7 @@ const {
 
 const express = require('express');
 
-// 🌐 Web server (FIXES RENDER TIMEOUT)
+// 🌐 UPTIME SERVER (keeps bot alive on hosting)
 const app = express();
 app.get('/', (req, res) => {
   res.send('Bot is running!');
@@ -22,14 +22,17 @@ app.listen(PORT, () => {
   console.log(`Web server running on port ${PORT}`);
 });
 
-// 🤖 Discord client
+// 🤖 CLIENT
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
 });
 
 const GUILD_ID = "1487021154735620126";
 
-// 🛠️ COMMAND
+// 🛠️ SLASH COMMAND
 const commands = [
   new SlashCommandBuilder()
     .setName('r')
@@ -57,33 +60,35 @@ const commands = [
 
     .addRoleOption(option =>
       option.setName('rank_earned')
-        .setDescription('Select role')
+        .setDescription('Select role earned')
         .setRequired(true))
 
     .addStringOption(option =>
       option.setName('image')
         .setDescription('Image URL (optional)')
         .setRequired(false))
-
 ].map(cmd => cmd.toJSON());
 
-// 🚀 REGISTER COMMAND
+// 🚀 REGISTER COMMANDS
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 (async () => {
   try {
+    console.log("Registering slash commands...");
+
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
       { body: commands }
     );
-    console.log("Command registered!");
+
+    console.log("Slash commands registered!");
   } catch (err) {
-    console.error(err);
+    console.error("Command register error:", err);
   }
 })();
 
-// ✅ READY
-client.once('ready', () => {
+// ✅ READY EVENT (FIXED - NO WARNING)
+client.once('clientReady', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
@@ -102,57 +107,46 @@ client.on('interactionCreate', async interaction => {
     const role = interaction.options.getRole('rank_earned');
     const image = interaction.options.getString('image');
 
+    if (!targetUser) {
+      return interaction.editReply("❌ User not found.");
+    }
+
+    if (!role) {
+      return interaction.editReply("❌ Role not found.");
+    }
+
     let member;
 
     try {
       member = await interaction.guild.members.fetch(targetUser.id);
     } catch (err) {
-      console.error("Fetch error:", err);
-      return interaction.editReply({
-        content: '❌ Could not find that user in the server.'
-      });
+      return interaction.editReply("❌ Cannot fetch user from server.");
     }
 
     try {
       await member.roles.add(role);
     } catch (err) {
-      console.error("Role error:", err);
-      return interaction.editReply({
-        content: '❌ Cannot give role. Check bot role position & permissions.'
-      });
+      return interaction.editReply("❌ Cannot give role (check permissions & role hierarchy).");
     }
 
-    try {
-      const embed = new EmbedBuilder()
-        .setTitle(`${targetUser.username}'s Test Results 🏆`)
-        .setColor(0xFFD700)
-        .addFields(
-          { name: 'USER', value: `<@${targetUser.id}>`, inline: true },
-          { name: 'KIT', value: kit, inline: true },
-          { name: '\u200B', value: '\u200B', inline: true },
+    const embed = new EmbedBuilder()
+      .setTitle(`${targetUser.username}'s Test Results 🏆`)
+      .setColor(0xFFD700)
+      .addFields(
+        { name: 'USER', value: `<@${targetUser.id}>`, inline: true },
+        { name: 'KIT', value: kit, inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
 
-          { name: 'REGION', value: region, inline: true },
-          { name: 'RANK BEFORE', value: rankBefore, inline: true },
-          { name: 'RANK EARNED', value: `<@&${role.id}>`, inline: true },
+        { name: 'REGION', value: region, inline: true },
+        { name: 'RANK BEFORE', value: rankBefore, inline: true },
+        { name: 'RANK EARNED', value: `<@&${role.id}>`, inline: true },
 
-          { name: 'TESTED BY', value: `<@${interaction.user.id}>` }
-        )
-        .setTimestamp();
+        { name: 'TESTED BY', value: `<@${interaction.user.id}>` }
+      )
+      .setTimestamp()
+      .setThumbnail(image || targetUser.displayAvatarURL());
 
-      if (image) {
-        embed.setThumbnail(image);
-      } else {
-        embed.setThumbnail(targetUser.displayAvatarURL());
-      }
-
-      await interaction.editReply({ embeds: [embed] });
-
-    } catch (err) {
-      console.error("Embed error:", err);
-      await interaction.editReply({
-        content: '❌ Something went wrong while sending embed.'
-      });
-    }
+    return interaction.editReply({ embeds: [embed] });
   }
 });
 
