@@ -27,7 +27,7 @@ const client = new Client({
 
 const GUILD_ID = "1487021154735620126";
 
-// 🛠️ COMMAND
+// 🛠️ SLASH COMMAND
 const commands = [
   new SlashCommandBuilder()
     .setName('r')
@@ -64,26 +64,29 @@ const commands = [
         .setRequired(false))
 ].map(cmd => cmd.toJSON());
 
-// 🚀 REGISTER COMMANDS (FIXED CLEAN SYSTEM)
+// 🚀 REST API
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-client.once('ready', async () => {
+// 🔁 READY EVENT (FIXED)
+client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   try {
-    // 🔥 DELETE OLD COMMANDS (fix dropdown bugs)
+    console.log("Refreshing slash commands...");
+
+    // 🧹 delete old commands (fix dropdown bugs)
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
       { body: [] }
     );
 
-    // 🔥 REGISTER NEW COMMANDS
+    // 🆕 register new commands
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
       { body: commands }
     );
 
-    console.log("Slash commands registered successfully!");
+    console.log("Slash commands loaded successfully!");
   } catch (err) {
     console.error("Command error:", err);
   }
@@ -117,13 +120,13 @@ client.on('interactionCreate', async interaction => {
     try {
       member = await interaction.guild.members.fetch(targetUser.id);
     } catch (err) {
-      return interaction.editReply("❌ Could not fetch user from server.");
+      return interaction.editReply("❌ Cannot fetch user from server.");
     }
 
     try {
       await member.roles.add(role);
     } catch (err) {
-      return interaction.editReply("❌ I cannot give that role (check bot permissions & role hierarchy).");
+      return interaction.editReply("❌ Cannot give role (check bot permissions & role hierarchy).");
     }
 
     const embed = new EmbedBuilder()
