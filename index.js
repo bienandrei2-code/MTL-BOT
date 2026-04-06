@@ -9,6 +9,20 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
+const express = require('express');
+
+// 🌐 Web server (FIXES RENDER TIMEOUT)
+const app = express();
+app.get('/', (req, res) => {
+  res.send('Bot is running!');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Web server running on port ${PORT}`);
+});
+
+// 🤖 Discord client
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
@@ -53,7 +67,7 @@ const commands = [
 
 ].map(cmd => cmd.toJSON());
 
-// 🚀 REGISTER
+// 🚀 REGISTER COMMAND
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
 (async () => {
@@ -68,11 +82,12 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   }
 })();
 
+// ✅ READY
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// ⚡ HANDLER
+// ⚡ COMMAND HANDLER
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -93,7 +108,6 @@ client.on('interactionCreate', async interaction => {
       member = await interaction.guild.members.fetch(targetUser.id);
     } catch (err) {
       console.error("Fetch error:", err);
-
       return interaction.editReply({
         content: '❌ Could not find that user in the server.'
       });
@@ -103,7 +117,6 @@ client.on('interactionCreate', async interaction => {
       await member.roles.add(role);
     } catch (err) {
       console.error("Role error:", err);
-
       return interaction.editReply({
         content: '❌ Cannot give role. Check bot role position & permissions.'
       });
@@ -136,7 +149,6 @@ client.on('interactionCreate', async interaction => {
 
     } catch (err) {
       console.error("Embed error:", err);
-
       await interaction.editReply({
         content: '❌ Something went wrong while sending embed.'
       });
@@ -144,4 +156,5 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+// 🔐 LOGIN
 client.login(process.env.TOKEN);
