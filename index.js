@@ -9,20 +9,6 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-const express = require('express');
-
-// 🌐 Web server (FIXES RENDER TIMEOUT)
-const app = express();
-app.get('/', (req, res) => {
-  res.send('Bot is running!');
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Web server running on port ${PORT}`);
-});
-
-// 🤖 Discord client
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
@@ -82,7 +68,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   }
 })();
 
-// ✅ READY
+// ✅ BOT READY
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
@@ -107,7 +93,6 @@ client.on('interactionCreate', async interaction => {
     try {
       member = await interaction.guild.members.fetch(targetUser.id);
     } catch (err) {
-      console.error("Fetch error:", err);
       return interaction.editReply({
         content: '❌ Could not find that user in the server.'
       });
@@ -116,43 +101,29 @@ client.on('interactionCreate', async interaction => {
     try {
       await member.roles.add(role);
     } catch (err) {
-      console.error("Role error:", err);
       return interaction.editReply({
-        content: '❌ Cannot give role. Check bot role position & permissions.'
+        content: '❌ Cannot give role. Check bot permissions & role hierarchy.'
       });
     }
 
-    try {
-      const embed = new EmbedBuilder()
-        .setTitle(`${targetUser.username}'s Test Results 🏆`)
-        .setColor(0xFFD700)
-        .addFields(
-          { name: 'USER', value: `<@${targetUser.id}>`, inline: true },
-          { name: 'KIT', value: kit, inline: true },
-          { name: '\u200B', value: '\u200B', inline: true },
+    const embed = new EmbedBuilder()
+      .setTitle(`${targetUser.username}'s Test Results 🏆`)
+      .setColor(0xFFD700)
+      .addFields(
+        { name: 'USER', value: `<@${targetUser.id}>`, inline: true },
+        { name: 'KIT', value: kit, inline: true },
+        { name: '\u200B', value: '\u200B', inline: true },
 
-          { name: 'REGION', value: region, inline: true },
-          { name: 'RANK BEFORE', value: rankBefore, inline: true },
-          { name: 'RANK EARNED', value: `<@&${role.id}>`, inline: true },
+        { name: 'REGION', value: region, inline: true },
+        { name: 'RANK BEFORE', value: rankBefore, inline: true },
+        { name: 'RANK EARNED', value: `<@&${role.id}>`, inline: true },
 
-          { name: 'TESTED BY', value: `<@${interaction.user.id}>` }
-        )
-        .setTimestamp();
+        { name: 'TESTED BY', value: `<@${interaction.user.id}>` }
+      )
+      .setTimestamp()
+      .setThumbnail(image || targetUser.displayAvatarURL());
 
-      if (image) {
-        embed.setThumbnail(image);
-      } else {
-        embed.setThumbnail(targetUser.displayAvatarURL());
-      }
-
-      await interaction.editReply({ embeds: [embed] });
-
-    } catch (err) {
-      console.error("Embed error:", err);
-      await interaction.editReply({
-        content: '❌ Something went wrong while sending embed.'
-      });
-    }
+    await interaction.editReply({ embeds: [embed] });
   }
 });
 
