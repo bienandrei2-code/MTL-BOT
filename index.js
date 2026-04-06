@@ -1,5 +1,14 @@
 require('dotenv').config();
 
+// 🔁 AUTO-RESTART / ANTI-CRASH
+process.on("uncaughtException", err => {
+  console.error("CRASH:", err);
+});
+
+process.on("unhandledRejection", err => {
+  console.error("PROMISE ERROR:", err);
+});
+
 const {
   Client,
   GatewayIntentBits,
@@ -9,6 +18,7 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
+// 🤖 CLIENT
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
@@ -53,10 +63,12 @@ const commands = [
 
 ].map(cmd => cmd.toJSON());
 
-// 🚀 REGISTER COMMAND
+// 🚀 REGISTER COMMANDS
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-(async () => {
+client.once('clientReady', async () => {
+  console.log(`Logged in as ${client.user.tag}`);
+
   try {
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
@@ -64,13 +76,21 @@ const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
     );
     console.log("Command registered!");
   } catch (err) {
-    console.error(err);
+    console.error("Command error:", err);
   }
-})();
+});
 
-// ✅ BOT READY
-client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`);
+// 🔁 CONNECTION EVENTS
+client.on("error", console.error);
+client.on("shardError", console.error);
+client.on("disconnect", () => {
+  console.log("Bot disconnected!");
+});
+client.on("reconnecting", () => {
+  console.log("Bot reconnecting...");
+});
+client.on("resume", () => {
+  console.log("Bot resumed!");
 });
 
 // ⚡ COMMAND HANDLER
