@@ -1,13 +1,5 @@
 require('dotenv').config();
 
-process.on("uncaughtException", err => {
-  console.error("CRASH:", err);
-});
-
-process.on("unhandledRejection", err => {
-  console.error("PROMISE ERROR:", err);
-});
-
 const {
   Client,
   GatewayIntentBits,
@@ -17,17 +9,27 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-// 🤖 CLIENT
+const express = require('express');
+
+// 🌐 Web server (FIXES RENDER TIMEOUT)
+const app = express();
+app.get('/', (req, res) => {
+  res.send('Bot is running!');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Web server running on port ${PORT}`);
+});
+
+// 🤖 Discord client
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
 const GUILD_ID = "1487021154735620126";
 
-// 🛠️ SLASH COMMAND
+// 🛠️ COMMAND
 const commands = [
   new SlashCommandBuilder()
     .setName('r')
@@ -55,41 +57,34 @@ const commands = [
 
     .addRoleOption(option =>
       option.setName('rank_earned')
-        .setDescription('Select role earned')
+        .setDescription('Select role')
         .setRequired(true))
 
     .addStringOption(option =>
       option.setName('image')
         .setDescription('Image URL (optional)')
         .setRequired(false))
+
 ].map(cmd => cmd.toJSON());
 
-// 🚀 REST API
+// 🚀 REGISTER COMMAND
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-// 🔁 READY EVENT (FIXED)
-client.once('clientReady', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
-
+(async () => {
   try {
-    console.log("Refreshing slash commands...");
-
-    // 🧹 delete old commands (fix dropdown bugs)
-    await rest.put(
-      Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
-      { body: [] }
-    );
-
-    // 🆕 register new commands
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
       { body: commands }
     );
-
-    console.log("Slash commands loaded successfully!");
+    console.log("Command registered!");
   } catch (err) {
-    console.error("Command error:", err);
+    console.error(err);
   }
+})();
+
+// ✅ READY
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}`);
 });
 
 // ⚡ COMMAND HANDLER
@@ -107,46 +102,57 @@ client.on('interactionCreate', async interaction => {
     const role = interaction.options.getRole('rank_earned');
     const image = interaction.options.getString('image');
 
-    if (!targetUser) {
-      return interaction.editReply("❌ User not found.");
-    }
-
-    if (!role) {
-      return interaction.editReply("❌ Role not found.");
-    }
-
     let member;
 
     try {
       member = await interaction.guild.members.fetch(targetUser.id);
     } catch (err) {
-      return interaction.editReply("❌ Cannot fetch user from server.");
+      console.error("Fetch error:", err);
+      return interaction.editReply({
+        content: '❌ Could not find that user in the server.'
+      });
     }
 
     try {
       await member.roles.add(role);
     } catch (err) {
-      return interaction.editReply("❌ Cannot give role (check bot permissions & role hierarchy).");
+      console.error("Role error:", err);
+      return interaction.editReply({
+        content: '❌ Cannot give role. Check bot role position & permissions.'
+      });
     }
 
-    const embed = new EmbedBuilder()
-      .setTitle(`${targetUser.username}'s Test Results 🏆`)
-      .setColor(0xFFD700)
-      .addFields(
-        { name: 'USER', value: `<@${targetUser.id}>`, inline: true },
-        { name: 'KIT', value: kit, inline: true },
-        { name: '\u200B', value: '\u200B', inline: true },
+    try {
+      const embed = new EmbedBuilder()
+        .setTitle(`${targetUser.username}'s Test Results 🏆`)
+        .setColor(0xFFD700)
+        .addFields(
+          { name: 'USER', value: `<@${targetUser.id}>`, inline: true },
+          { name: 'KIT', value: kit, inline: true },
+          { name: '\u200B', value: '\u200B', inline: true },
 
-        { name: 'REGION', value: region, inline: true },
-        { name: 'RANK BEFORE', value: rankBefore, inline: true },
-        { name: 'RANK EARNED', value: `<@&${role.id}>`, inline: true },
+          { name: 'REGION', value: region, inline: true },
+          { name: 'RANK BEFORE', value: rankBefore, inline: true },
+          { name: 'RANK EARNED', value: `<@&${role.id}>`, inline: true },
 
-        { name: 'TESTED BY', value: `<@${interaction.user.id}>` }
-      )
-      .setTimestamp()
-      .setThumbnail(image || targetUser.displayAvatarURL());
+          { name: 'TESTED BY', value: `<@${interaction.user.id}>` }
+        )
+        .setTimestamp();
 
-    await interaction.editReply({ embeds: [embed] });
+      if (image) {
+        embed.setThumbnail(image);
+      } else {
+        embed.setThumbnail(targetUser.displayAvatarURL());
+      }
+
+      await interaction.editReply({ embeds: [embed] });
+
+    } catch (err) {
+      console.error("Embed error:", err);
+      await interaction.editReply({
+        content: '❌ Something went wrong while sending embed.'
+      });
+    }
   }
 });
 
