@@ -1,6 +1,5 @@
 require('dotenv').config();
 
-// 🔁 AUTO-RESTART / ANTI-CRASH
 process.on("uncaughtException", err => {
   console.error("CRASH:", err);
 });
@@ -20,7 +19,10 @@ const {
 
 // 🤖 CLIENT
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
 });
 
 const GUILD_ID = "1487021154735620126";
@@ -53,44 +55,38 @@ const commands = [
 
     .addRoleOption(option =>
       option.setName('rank_earned')
-        .setDescription('Select role')
+        .setDescription('Select role earned')
         .setRequired(true))
 
     .addStringOption(option =>
       option.setName('image')
         .setDescription('Image URL (optional)')
         .setRequired(false))
-
 ].map(cmd => cmd.toJSON());
 
-// 🚀 REGISTER COMMANDS
+// 🚀 REGISTER COMMANDS (FIXED CLEAN SYSTEM)
 const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   try {
+    // 🔥 DELETE OLD COMMANDS (fix dropdown bugs)
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
+      { body: [] }
+    );
+
+    // 🔥 REGISTER NEW COMMANDS
     await rest.put(
       Routes.applicationGuildCommands(process.env.CLIENT_ID, GUILD_ID),
       { body: commands }
     );
-    console.log("Command registered!");
+
+    console.log("Slash commands registered successfully!");
   } catch (err) {
     console.error("Command error:", err);
   }
-});
-
-// 🔁 CONNECTION EVENTS
-client.on("error", console.error);
-client.on("shardError", console.error);
-client.on("disconnect", () => {
-  console.log("Bot disconnected!");
-});
-client.on("reconnecting", () => {
-  console.log("Bot reconnecting...");
-});
-client.on("resume", () => {
-  console.log("Bot resumed!");
 });
 
 // ⚡ COMMAND HANDLER
@@ -108,22 +104,26 @@ client.on('interactionCreate', async interaction => {
     const role = interaction.options.getRole('rank_earned');
     const image = interaction.options.getString('image');
 
+    if (!targetUser) {
+      return interaction.editReply("❌ User not found.");
+    }
+
+    if (!role) {
+      return interaction.editReply("❌ Role not found.");
+    }
+
     let member;
 
     try {
       member = await interaction.guild.members.fetch(targetUser.id);
     } catch (err) {
-      return interaction.editReply({
-        content: '❌ Could not find that user in the server.'
-      });
+      return interaction.editReply("❌ Could not fetch user from server.");
     }
 
     try {
       await member.roles.add(role);
     } catch (err) {
-      return interaction.editReply({
-        content: '❌ Cannot give role. Check bot permissions & role hierarchy.'
-      });
+      return interaction.editReply("❌ I cannot give that role (check bot permissions & role hierarchy).");
     }
 
     const embed = new EmbedBuilder()
